@@ -10,7 +10,7 @@ import PlayerManagement from './components/PlayerManagement';
 function AppContent() {
   const { currentPage, loading } = useGame();
   const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('theme') || 'simple';
+    return localStorage.getItem('theme') || 'zen';
   });
 
   useEffect(() => {
@@ -19,7 +19,17 @@ function AppContent() {
   }, [theme]);
 
   const toggleTheme = () => {
-    setTheme(prev => prev === 'simple' ? 'modern' : 'simple');
+    setTheme(prev => {
+      if (prev === 'simple') return 'modern';
+      if (prev === 'modern') return 'zen';
+      return 'simple';
+    });
+  };
+
+  const getThemeLabel = () => {
+    if (theme === 'simple') return '简';
+    if (theme === 'modern') return '现';
+    return '禅';
   };
 
   if (loading) {

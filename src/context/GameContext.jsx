@@ -71,11 +71,10 @@ export function GameProvider({ children }) {
       setHasUnsettled(scoresRes.hasUnsettled || false);
       setDailySettlementCount(scoresRes.dailySettlementCount || 0);
       
-      // Sync selectedPlayers from scoresRes.gamePlayers when there's an active game
+      // Sync selectedPlayers only when there's an active game
+      // Don't clear selectedPlayers when no game - allow user to select players on Home page
       if (scoresRes.hasGame && scoresRes.gamePlayers && scoresRes.gamePlayers.length > 0) {
         setSelectedPlayers(scoresRes.gamePlayers);
-      } else if (!scoresRes.hasGame) {
-        setSelectedPlayers([]);
       }
       
       // Update currentGame with selected_players
@@ -113,11 +112,10 @@ export function GameProvider({ children }) {
         round: scoresRes.currentRound || prev.round
       }));
       
-      // Sync selectedPlayers when there's an active game (no date restriction)
+      // Sync selectedPlayers only when there's an active game
+      // Don't clear selectedPlayers when no game - allow user to select players on Home page
       if (scoresRes.hasGame && scoresRes.gamePlayers && scoresRes.gamePlayers.length > 0) {
         setSelectedPlayers(scoresRes.gamePlayers);
-      } else if (!scoresRes.hasGame) {
-        setSelectedPlayers([]);
       }
     } catch (e) {
       console.error('Polling error:', e);

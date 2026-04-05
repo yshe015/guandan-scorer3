@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { useGame } from '../context/GameContext';
 import * as api from '../api';
 
+const showThemeButton = import.meta.env.VITE_SHOW_THEME_BUTTON !== 'false';
+const showResetButton = import.meta.env.VITE_SHOW_RESET_BUTTON !== 'false';
+
 function formatDate(date) {
   const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
   const d = new Date(date);
@@ -130,18 +133,22 @@ export default function Home({ toggleTheme, theme }) {
   return (
     <>
       <div className="header">
-        <h1>🃏 掼蛋记分器</h1>
+        <h1>🃏 地下室掼蛋记分器</h1>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <button 
-            className="header-btn" 
-            onClick={toggleTheme}
-            title={theme === 'simple' ? '切换到现代主题' : '切换到简洁主题'}
-            style={{ fontSize: '14px' }}
-          >
-            {theme === 'simple' ? '🌙' : '☀️'}
-          </button>
+          {showThemeButton && (
+            <button 
+              className="header-btn" 
+              onClick={toggleTheme}
+              title={`当前: ${theme === 'simple' ? '简洁' : theme === 'modern' ? '现代' : '禅'}主题`}
+              style={{ fontSize: '14px' }}
+            >
+              {theme === 'simple' ? '简' : theme === 'modern' ? '现' : '禅'}
+            </button>
+          )}
           <button className="header-btn" onClick={() => setCurrentPage('manage')}>管理</button>
-          <button className="header-btn" onClick={resetData}>清零</button>
+          {showResetButton && (
+            <button className="header-btn" onClick={resetData}>清零</button>
+          )}
         </div>
       </div>
       <div className="date-display">{formatDate(date)}</div>
@@ -180,12 +187,8 @@ export default function Home({ toggleTheme, theme }) {
               <tr key={p.id}>
                 <td><span className="rank-num">{i + 1}</span></td>
                 <td>{p.name}</td>
-                <td className={p.todayScore > 0 ? 'positive' : p.todayScore < 0 ? 'negative' : ''}>
-                  {p.todayScore > 0 ? '+' + p.todayScore : p.todayScore}
-                </td>
-                <td className={p.monthScore > 0 ? 'positive' : p.monthScore < 0 ? 'negative' : ''}>
-                  {p.monthScore > 0 ? '+' + p.monthScore : p.monthScore}
-                </td>
+                <td><span className={`score-box ${p.todayScore > 0 ? 'positive' : p.todayScore < 0 ? 'negative' : 'neutral'}`}>{p.todayScore > 0 ? '+' + p.todayScore : p.todayScore}</span></td>
+                <td><span className={`score-box ${p.monthScore > 0 ? 'positive' : p.monthScore < 0 ? 'negative' : 'neutral'}`}>{p.monthScore > 0 ? '+' + p.monthScore : p.monthScore}</span></td>
               </tr>
             ))}
           </tbody>

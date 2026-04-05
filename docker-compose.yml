@@ -7,5 +7,7 @@ services:
       - ./data:/app/data
     environment:
       - NODE_ENV=production
-      - TZ=Pacific/Auckland
+      - TZ=Asia/Shanghai
+      - VITE_SHOW_THEME_BUTTON=false
+      - VITE_SHOW_RESET_BUTTON=false
     restart: unless-stopped

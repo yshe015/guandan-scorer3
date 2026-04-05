@@ -46,6 +46,29 @@
   --input-border: #e0e0e0;
 }
 
+[data-theme="zen"] {
+  /* Zen 主题 - 中国传统美学 */
+  --bg-color: #F7F4ED;
+  --container-bg: #FDFCFB;
+  --header-bg: linear-gradient(135deg, #4A5D5A, #3D4A47);
+  --primary-color: #C84B31;
+  --secondary-color: #E8E4D9;
+  --text-primary: #2D2D2D;
+  --text-secondary: #8B7355;
+  --border-color: #D4CFC5;
+  --card-bg: #FDFCFB;
+  --border-radius: 4px;
+  --btn-padding: 12px 28px;
+  --btn-radius: 4px;
+  --box-shadow: 0 2px 8px rgba(74, 93, 90, 0.1);
+  --chip-bg: #E8E4D9;
+  --chip-selected-bg: #D4CFC5;
+  --score-positive: #4A5D5A;
+  --score-negative: #C84B31;
+  --input-bg: #FDFCFB;
+  --input-border: #D4CFC5;
+}
+
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-color); min-height: 100vh; }
 .container { max-width: 480px; margin: 0 auto; background: var(--container-bg); min-height: 100vh; box-shadow: var(--box-shadow); }
 .header { background: var(--header-bg); color: #fff; padding: 16px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
@@ -82,9 +105,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .history-item { padding: 12px 16px; border-bottom: 1px solid var(--border-color); }
 .history-round { font-size: 14px; color: var(--text-secondary); margin-bottom: 8px; }
 .history-scores { display: flex; flex-wrap: wrap; gap: 8px; }
-.history-score { padding: 4px 10px; background: var(--secondary-color); border-radius: 4px; font-size: 13px; }
-.history-score.positive { background: var(--chip-selected-bg); color: var(--score-positive); }
-.history-score.negative { background: #ffebee; color: var(--score-negative); }
+.history-score { padding: 4px 10px; background: #9e9e9e; border-radius: 4px; font-size: 13px; color: #fff; font-weight: 600; }
+.history-score.positive { background: #06733F; }
+.history-score.negative { background: var(--score-negative); }
+
+.score-box { display: inline-flex; align-items: center; justify-content: center; padding: 4px; border-radius: 4px; font-size: 13px; color: #fff; font-weight: 600; min-width: 20px; min-height: 20px; box-sizing: border-box; }
+.score-box.positive { background: #06733F; }
+.score-box.negative { background: #C62828; }
+.score-box.neutral { background: #757575; }
+
+.score-table .positive { background: #06733F; color: #fff; padding: 4px; border-radius: 4px; min-width: 20px; min-height: 20px; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; }
+.score-table .negative { background: #C62828; color: #fff; padding: 4px; border-radius: 4px; min-width: 20px; min-height: 20px; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; }
 .daily-summary { background: var(--chip-selected-bg); padding: 16px; border-radius: var(--border-radius); margin: 16px; }
 .daily-summary h3 { font-size: 16px; color: var(--primary-color); margin-bottom: 12px; }
 .player-input-wrap { display: flex; gap: 8px; padding: 16px; }
@@ -105,6 +136,44 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 /* Theme toggle button */
 .theme-toggle { background: rgba(255,255,255,0.2); border: none; color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 14px; cursor: pointer; transition: all 0.2s; }
 .theme-toggle:hover { background: rgba(255,255,255,0.3); transform: scale(1.05); }
+
+[data-theme="zen"] .header-btn {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(200, 75, 49, 0.3);
+  font-family: 'Noto Serif SC', serif;
+  border-radius: 4px;
+}
+
+[data-theme="zen"] .header {
+  background: linear-gradient(135deg, #4A5D5A, #3D4A47);
+  border-bottom: 2px solid #C84B31;
+}
+
+[data-theme="zen"] .header h1 {
+  font-family: 'Noto Serif SC', 'Songti SC', serif;
+  letter-spacing: 2px;
+}
+
+[data-theme="zen"] .player-chip {
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  font-family: 'Noto Serif SC', serif;
+}
+
+[data-theme="zen"] .btn {
+  border-radius: 4px;
+  font-family: 'Noto Serif SC', serif;
+  letter-spacing: 1px;
+}
+
+[data-theme="zen"] .section-title {
+  font-family: 'Noto Serif SC', serif;
+}
+
+[data-theme="zen"] .expander-header {
+  border-radius: 4px;
+  border-left: 3px solid var(--primary-color);
+}
 
 /* Expander styles */
 .expander { cursor: pointer; user-select: none; }

@@ -185,7 +185,7 @@ export default function Score() {
   return (
     <>
       <div className="header">
-        <h1>🃏 记分</h1>
+        <h1>🃏 地下室记分</h1>
         <button className="header-btn" onClick={() => setCurrentPage('home')}>🏠</button>
       </div>
       <div className="date-display">
@@ -210,7 +210,9 @@ export default function Score() {
                   <td>{p.name}</td>
                   <td>
                     {currentGame.submitted ? (
-                      score > 0 ? '+' + score : score
+                      <span className={`score-box ${score > 0 ? 'positive' : score < 0 ? 'negative' : 'neutral'}`}>
+                        {score > 0 ? '+' + score : score}
+                      </span>
                     ) : (
                       <select
                         className="score-select"
@@ -223,9 +225,7 @@ export default function Score() {
                       </select>
                     )}
                   </td>
-                  <td className={playerScoreMap[p.id] > 0 ? 'positive' : playerScoreMap[p.id] < 0 ? 'negative' : ''}>
-                    {playerScoreMap[p.id] || 0}
-                  </td>
+                  <td><span className={`score-box ${playerScoreMap[p.id] > 0 ? 'positive' : playerScoreMap[p.id] < 0 ? 'negative' : 'neutral'}`}>{playerScoreMap[p.id] > 0 ? '+' + playerScoreMap[p.id] : playerScoreMap[p.id] || 0}</span></td>
                 </tr>
               );
             })}
