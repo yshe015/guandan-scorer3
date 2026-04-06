@@ -12,11 +12,35 @@ function AppContent() {
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem('theme') || 'zen';
   });
+  const [config, setConfig] = useState({
+    admin: false,
+    pollInterval: 600000,
+    logLevel: 'info'
+  });
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    let intervalId;
+
+    function fetchConfig() {
+      fetch('/api/config')
+        .then(res => res.json())
+        .then(data => setConfig(data))
+        .catch(() => {});
+    }
+
+    fetchConfig();
+
+    intervalId = setInterval(fetchConfig, config.pollInterval || 600000);
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [config.pollInterval]);
 
   const toggleTheme = () => {
     setTheme(prev => {
@@ -24,12 +48,6 @@ function AppContent() {
       if (prev === 'modern') return 'zen';
       return 'simple';
     });
-  };
-
-  const getThemeLabel = () => {
-    if (theme === 'simple') return '简';
-    if (theme === 'modern') return '现';
-    return '禅';
   };
 
   if (loading) {
@@ -42,7 +60,7 @@ function AppContent() {
 
   return (
     <div className="container">
-      {currentPage === 'home' && <Home toggleTheme={toggleTheme} theme={theme} />}
+      {currentPage === 'home' && <Home toggleTheme={toggleTheme} theme={theme} config={config} />}
       {currentPage === 'score' && <Score toggleTheme={toggleTheme} theme={theme} />}
       {currentPage === 'history' && <History toggleTheme={toggleTheme} theme={theme} />}
       {currentPage === 'daily-settlement' && <DailySettlement toggleTheme={toggleTheme} theme={theme} />}

@@ -1,0 +1,5 @@
+{
+  "admin": false,
+  "pollInterval": 600000,
+  "logLevel": "info"
+}

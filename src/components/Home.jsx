@@ -2,16 +2,16 @@ import React, { useState } from 'react';
 import { useGame } from '../context/GameContext';
 import * as api from '../api';
 
-const showThemeButton = import.meta.env.VITE_SHOW_THEME_BUTTON !== 'false';
-const showResetButton = import.meta.env.VITE_SHOW_RESET_BUTTON !== 'false';
-
 function formatDate(date) {
   const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
   const d = new Date(date);
   return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 ${weekdays[d.getDay()]}`;
 }
 
-export default function Home({ toggleTheme, theme }) {
+export default function Home({ toggleTheme, theme, config }) {
+  const { admin } = config || { admin: false };
+  const showThemeButton = admin;
+  const showResetButton = admin;
   const {
     players,
     todayScores,

@@ -3,6 +3,8 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { initDb, getDb, saveDb, closeDb } from './database.js';
+import { getConfig } from './config.js';
+import logger from './logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -55,9 +57,22 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Request logging
+// Request logging with response time and client IP
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  const start = Date.now();
+  
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    const clientIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    logger.debug({
+      method: req.method,
+      url: req.url,
+      status: res.statusCode,
+      duration: `${duration}ms`,
+      clientIP: clientIP
+    }, 'HTTP Request');
+  });
+  
   next();
 });
 
@@ -69,12 +84,28 @@ app.use('/api', (req, res, next) => {
   next();
 });
 
+// Config API
+app.get('/api/config', (req, res) => {
+  try {
+    const config = getConfig();
+    res.json({
+      admin: config.admin,
+      pollInterval: config.pollInterval,
+      logLevel: config.logLevel
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Players API
 app.get('/api/players', (req, res) => {
   try {
     const players = queryAll('SELECT * FROM players ORDER BY name');
     res.json(players);
   } catch (e) {
+    const clientIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    logger.error({ url: req.url, error: e.message, clientIP: clientIP }, 'API Error');
     res.status(500).json({ error: e.message });
   }
 });
@@ -88,6 +119,8 @@ app.post('/api/players', (req, res) => {
     const result = run('INSERT INTO players (name) VALUES (?)', [name.trim()]);
     res.json({ id: result.lastInsertRowid, name: name.trim() });
   } catch (e) {
+    const clientIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    logger.error({ url: req.url, error: e.message, clientIP: clientIP }, 'API Error');
     res.status(500).json({ error: e.message });
   }
 });
@@ -115,6 +148,8 @@ app.get('/api/daily-settlement/:settlementKey/records', (req, res) => {
     
     res.json({ grouped });
   } catch (e) {
+    const clientIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    logger.error({ url: req.url, error: e.message, clientIP: clientIP }, 'API Error');
     res.status(500).json({ error: e.message });
   }
 });
@@ -138,6 +173,8 @@ app.put('/api/players/:id', (req, res) => {
     run('UPDATE players SET name = ? WHERE id = ?', [name.trim(), req.params.id]);
     res.json({ id: parseInt(req.params.id), name: name.trim() });
   } catch (e) {
+    const clientIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    logger.error({ url: req.url, error: e.message, clientIP: clientIP }, 'API Error');
     res.status(400).json({ error: '玩家名称已存在' });
   }
 });
@@ -186,6 +223,8 @@ app.get('/api/scores', (req, res) => {
       dailySettlementCount: dailySettlementCount?.count || 0
     });
   } catch (e) {
+    const clientIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    logger.error({ url: req.url, error: e.message, clientIP: clientIP }, 'API Error');
     res.status(500).json({ error: e.message });
   }
 });
@@ -204,6 +243,8 @@ app.post('/api/records', (req, res) => {
     }
     res.json({ success: true });
   } catch (e) {
+    const clientIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    logger.error({ url: req.url, error: e.message, clientIP: clientIP }, 'API Error');
     res.status(500).json({ error: e.message });
   }
 });
@@ -230,6 +271,8 @@ app.get('/api/records', (req, res) => {
     
     res.json({ records, grouped });
   } catch (e) {
+    const clientIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    logger.error({ url: req.url, error: e.message, clientIP: clientIP }, 'API Error');
     res.status(500).json({ error: e.message });
   }
 });
@@ -252,6 +295,8 @@ app.get('/api/current-game', (req, res) => {
       res.json(null);
     }
   } catch (e) {
+    const clientIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    logger.error({ url: req.url, error: e.message, clientIP: clientIP }, 'API Error');
     res.status(500).json({ error: e.message });
   }
 });
@@ -266,6 +311,8 @@ app.post('/api/current-game', (req, res) => {
     `, [date, round, JSON.stringify(selected_players), JSON.stringify(scores)]);
     res.json({ success: true });
   } catch (e) {
+    const clientIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    logger.error({ url: req.url, error: e.message, clientIP: clientIP }, 'API Error');
     res.status(500).json({ error: e.message });
   }
 });
@@ -284,6 +331,8 @@ app.post('/api/current-game/submit', (req, res) => {
     
     res.json({ success: true });
   } catch (e) {
+    const clientIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    logger.error({ url: req.url, error: e.message, clientIP: clientIP }, 'API Error');
     res.status(500).json({ error: e.message });
   }
 });
@@ -293,6 +342,8 @@ app.post('/api/current-game/reset', (req, res) => {
     run('DELETE FROM current_game WHERE id = 1');
     res.json({ success: true });
   } catch (e) {
+    const clientIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    logger.error({ url: req.url, error: e.message, clientIP: clientIP }, 'API Error');
     res.status(500).json({ error: e.message });
   }
 });
@@ -305,6 +356,8 @@ app.get('/api/daily-settlement', (req, res) => {
     const result = queryOne('SELECT * FROM daily_settlement WHERE date = ?', [targetDate]);
     res.json(result || null);
   } catch (e) {
+    const clientIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    logger.error({ url: req.url, error: e.message, clientIP: clientIP }, 'API Error');
     res.status(500).json({ error: e.message });
   }
 });
@@ -327,6 +380,8 @@ app.post('/api/daily-settlement', (req, res) => {
     
     res.json({ success: true });
   } catch (e) {
+    const clientIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    logger.error({ url: req.url, error: e.message, clientIP: clientIP }, 'API Error');
     res.status(500).json({ error: e.message });
   }
 });
@@ -338,6 +393,8 @@ app.get('/api/check-daily-settled', (req, res) => {
     const result = queryOne('SELECT * FROM daily_settlement WHERE date = ?', [targetDate]);
     res.json({ settled: !!result });
   } catch (e) {
+    const clientIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    logger.error({ url: req.url, error: e.message, clientIP: clientIP }, 'API Error');
     res.status(500).json({ error: e.message });
   }
 });
@@ -350,6 +407,8 @@ app.get('/api/monthly-settlement', (req, res) => {
     const result = queryOne('SELECT * FROM monthly_settlement WHERE month = ?', [targetMonth]);
     res.json(result || null);
   } catch (e) {
+    const clientIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    logger.error({ url: req.url, error: e.message, clientIP: clientIP }, 'API Error');
     res.status(500).json({ error: e.message });
   }
 });
@@ -372,6 +431,8 @@ app.post('/api/monthly-settlement', (req, res) => {
     
     res.json({ success: true });
   } catch (e) {
+    const clientIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    logger.error({ url: req.url, error: e.message, clientIP: clientIP }, 'API Error');
     res.status(500).json({ error: e.message });
   }
 });
@@ -398,6 +459,8 @@ app.get('/api/history', (req, res) => {
     
     res.json({ monthly, daily, currentRecords });
   } catch (e) {
+    const clientIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    logger.error({ url: req.url, error: e.message, clientIP: clientIP }, 'API Error');
     res.status(500).json({ error: e.message });
   }
 });
@@ -429,6 +492,8 @@ app.get('/api/daily-records', (req, res) => {
     
     res.json({ grouped });
   } catch (e) {
+    const clientIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    logger.error({ url: req.url, error: e.message, clientIP: clientIP }, 'API Error');
     res.status(500).json({ error: e.message });
   }
 });
@@ -448,12 +513,28 @@ app.post('/api/reset', (req, res) => {
     run('DELETE FROM current_game');
     res.json({ success: true });
   } catch (e) {
+    const clientIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    logger.error({ url: req.url, error: e.message, clientIP: clientIP }, 'API Error');
     res.status(500).json({ error: e.message });
   }
 });
 
 // Serve static files in production
 app.use(express.static(path.join(__dirname, '..', 'dist')));
+
+// Global error handler
+app.use((err, req, res, next) => {
+  const clientIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+  logger.error({ url: req.url, error: err.message, stack: err.stack, clientIP: clientIP }, 'Unhandled Error');
+  res.status(500).json({ error: 'Internal server error' });
+});
+
+// 404 handler
+app.use((req, res) => {
+  const clientIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+  logger.warn({ url: req.url, clientIP: clientIP }, '404 Not Found');
+  res.status(404).json({ error: 'Not found' });
+});
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
@@ -462,13 +543,13 @@ app.get('*', (req, res) => {
 async function startServer() {
   try {
     await initDb();
-    console.log('Database initialized');
+    logger.info('Database initialized');
     
     app.listen(PORT, '0.0.0.0', () => {
-      console.log(`Server running on port ${PORT}`);
+      logger.info(`Server running on port ${PORT}`);
     });
   } catch (e) {
-    console.error('Failed to start server:', e);
+    logger.error('Failed to start server:', e);
     process.exit(1);
   }
 }
