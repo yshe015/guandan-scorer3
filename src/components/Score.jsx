@@ -225,7 +225,15 @@ export default function Score() {
                       </select>
                     )}
                   </td>
-                  <td><span className={`score-box ${playerScoreMap[p.id] > 0 ? 'positive' : playerScoreMap[p.id] < 0 ? 'negative' : 'neutral'}`}>{playerScoreMap[p.id] > 0 ? '+' + playerScoreMap[p.id] : playerScoreMap[p.id] || 0}</span></td>
+                  <td>
+                    {playerScoreMap[p.id] !== undefined ? (
+                      <span className={`score-box ${playerScoreMap[p.id] > 0 ? 'positive' : playerScoreMap[p.id] < 0 ? 'negative' : 'neutral'}`}>
+                        {playerScoreMap[p.id] > 0 ? '+' + playerScoreMap[p.id] : playerScoreMap[p.id]}
+                      </span>
+                    ) : (
+                      <span className="score-box neutral">0</span>
+                    )}
+                  </td>
                 </tr>
               );
             })}

@@ -23,8 +23,6 @@ export default function DailySettlement() {
     playerScoreMap[p.id] = p.today_score || 0;
   });
 
-  const totalScore = Object.values(playerScoreMap).reduce((a, b) => a + b, 0);
-
   const confirmDailySettlement = async () => {
     setConfirmMsg('确认日结？日结后当日数据将锁定。');
   };
@@ -77,20 +75,22 @@ export default function DailySettlement() {
           </tr>
         </thead>
         <tbody>
-          {players.map(p => (
+          {[...players].sort((a, b) => (playerScoreMap[b.id] || 0) - (playerScoreMap[a.id] || 0)).map(p => (
             <tr key={p.id}>
               <td>{p.name}</td>
-              <td className={playerScoreMap[p.id] > 0 ? 'positive' : playerScoreMap[p.id] < 0 ? 'negative' : ''}>
-                {playerScoreMap[p.id] || 0}
+              <td>
+                {playerScoreMap[p.id] !== undefined ? (
+                  <span className={`score-box ${playerScoreMap[p.id] > 0 ? 'positive' : playerScoreMap[p.id] < 0 ? 'negative' : 'neutral'}`}>
+                    {playerScoreMap[p.id] > 0 ? '+' + playerScoreMap[p.id] : playerScoreMap[p.id]}
+                  </span>
+                ) : (
+                  <span className="score-box neutral">0</span>
+                )}
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-      
-      <div className="daily-summary">
-        <div>今日小计: {totalScore}</div>
-      </div>
       
       <div className="section">
         <button className="btn btn-primary" onClick={confirmDailySettlement}>确认日结</button>

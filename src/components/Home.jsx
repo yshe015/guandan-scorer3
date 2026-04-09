@@ -54,14 +54,14 @@ export default function Home({ toggleTheme, theme, config }) {
     monthScore: monthScoreMap[p.id] || 0
   })).sort((a, b) => b.monthScore - a.monthScore);
 
-  const isGameActive = hasGame && selectedPlayers.length >= 4;
+  const isGameActive = hasGame;
 
   const togglePlayer = async (id) => {
     const idx = selectedPlayers.indexOf(id);
     let newSelected;
     if (idx > -1) {
-      // Check if deselecting would result in less than 4 players
-      if (selectedPlayers.length <= 4) {
+      // Check if deselecting would result in less than 4 players (only when game is active)
+      if (hasGame && selectedPlayers.length <= 4) {
         setAlertMsg('至少需要4位玩家！');
         return;
       }
@@ -75,8 +75,8 @@ export default function Home({ toggleTheme, theme, config }) {
     }
     setSelectedPlayers(newSelected);
     
-    // 只有选中4人或以上时才同步到服务器
-    if (newSelected.length >= 4) {
+    // 只有游戏进行中(hasGame=true)且选中4人或以上时才同步到服务器
+    if (hasGame && newSelected.length >= 4) {
       const scores = {};
       newSelected.forEach(pid => {
         scores[pid] = currentGame.scores?.[pid] || 0;

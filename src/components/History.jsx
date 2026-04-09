@@ -12,10 +12,8 @@ export default function History() {
     loadData();
   }, []);
 
-  // Fetch settlement-specific records when expanding
   const fetchSettlementRecords = async (settlementKey) => {
-    if (settlementRecords[settlementKey]) return; // Already fetched
-    
+    if (settlementRecords[settlementKey]) return;
     try {
       const data = await api.getDailySettlementRecords(settlementKey);
       setSettlementRecords(prev => ({
@@ -30,7 +28,6 @@ export default function History() {
   const toggleExpand = (key) => {
     setLocalExpanded(prev => {
       const newState = { ...prev, [key]: !prev[key] };
-      // Fetch settlement records when expanding
       if ((key.startsWith('daily-') || key.startsWith('daily-nm-')) && !prev[key]) {
         const settlementKey = key.replace(/^daily-nm-/, '').replace(/^daily-/, '');
         fetchSettlementRecords(settlementKey);
@@ -64,7 +61,7 @@ export default function History() {
   const dailyWithoutMonthly = (daily || []).filter(d => !d.monthly_settlement_id);
 
   // Default expand first item
-  const isExpanded = (key) => localExpanded[key] === true || (localExpanded[key] === undefined && (key === 'current' || key === 'daily-no-monthly' || key === 'daily-history'));
+  const isExpanded = (key) => localExpanded[key] === true || (localExpanded[key] === undefined && (key === 'current' || key === 'daily-no-monthly'));
 
   return (
     <>
@@ -130,7 +127,6 @@ export default function History() {
               {dailyWithoutMonthly.map((d) => {
                 const dayKey = `daily-nm-${d.settlement_key}`;
                 const dayIsOpen = isExpanded(dayKey);
-                
                 return (
                   <div key={d.settlement_key} className={`expander ${dayIsOpen ? 'open' : ''}`} style={{ marginLeft: 12, marginTop: 8 }}>
                     <div className="expander-header" onClick={(e) => { e.stopPropagation(); toggleExpand(dayKey); }} style={{ background: '#e8f5e9' }}>
@@ -151,10 +147,7 @@ export default function History() {
                           <div style={{ color: '#666', fontSize: 13 }}>第{round}局</div>
                           <div className="history-scores">
                             {settlementRecords[d.settlement_key][round].map((r, i) => (
-                              <span
-                                key={i}
-                                className={`history-score ${r.score > 0 ? 'positive' : r.score < 0 ? 'negative' : ''}`}
-                              >
+                              <span key={i} className={`history-score ${r.score > 0 ? 'positive' : r.score < 0 ? 'negative' : ''}`}>
                                 {r.name} {r.score > 0 ? '+' + r.score : r.score}
                               </span>
                             ))}
@@ -169,99 +162,28 @@ export default function History() {
           </div>
         )}
 
-        {/* 月结历史 - 默认收起 */}
-        {monthly && monthly.map((m, idx) => {
-          const monthKey = `monthly-${m.settlement_key}`;
-          const isOpen = isExpanded(monthKey);
-          
-          // 该月结包含的日结记录 - 只显示有月结关联的日结
-          const monthDaily = (daily || []).filter(d => d.monthly_settlement_id === m.settlement_key);
-          
-          return (
-            <div key={m.month} className={`expander ${isOpen ? 'open' : ''}`} style={{ marginTop: 12 }}>
-              <div className="expander-header" onClick={() => toggleExpand(monthKey)}>
-                <span>📆 {m.month}月结 ({m.settlement_key})</span>
-                <span style={{ fontSize: 12, color: '#666' }}>{monthDaily.length}次</span>
-              </div>
-              {m.data && (
-                <div style={{ padding: '8px 12px', background: '#fff3e0', fontSize: 13, borderBottom: '1px solid #ddd' }}>
-                  {Object.entries(JSON.parse(m.data)).map(([name, score]) => (
-                    <span key={name} style={{ marginRight: 12, color: score > 0 ? '#2e7d32' : score < 0 ? '#d32f2f' : '#666' }}>
-                      {name}: {score > 0 ? '+' + score : score}
-                    </span>
-                  ))}
-                </div>
-              )}
-              <div className="expander-content">
-                {monthDaily.length === 0 ? (
-                  <div className="empty-state">暂无日结记录</div>
-                ) : (
-                  monthDaily.map((d) => {
-                    const dayKey = `daily-${d.settlement_key}`;
-                    const dayIsOpen = isExpanded(dayKey);
-                    const dayData = settlementRecords[d.settlement_key];
-                    
-                    return (
-                      <div key={d.settlement_key} className={`expander ${dayIsOpen ? 'open' : ''}`} style={{ marginLeft: 12, marginTop: 8 }}>
-                        <div className="expander-header" onClick={(e) => { e.stopPropagation(); toggleExpand(dayKey); }} style={{ background: '#e8f5e9' }}>
-                          <span>📅 {d.date} ({d.settlement_key})</span>
-                        </div>
-                        {d.data && (
-                          <div style={{ padding: '8px 12px', background: '#f9f9f9', fontSize: 13 }}>
-                            {Object.entries(JSON.parse(d.data)).map(([name, score]) => (
-                              <span key={name} style={{ marginRight: 12, color: score > 0 ? '#2e7d32' : score < 0 ? '#d32f2f' : '#666' }}>
-                                {name}: {score > 0 ? '+' + score : score}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        <div className="expander-content">
-                          {dayData && Object.keys(dayData).map(round => (
-                            <div key={round} style={{ margin: '8px 0', marginLeft: 12 }}>
-                              <div style={{ color: '#666', fontSize: 13 }}>第{round}局</div>
-                              <div className="history-scores">
-                                {dayData[round].map((r, i) => (
-                                  <span
-                                    key={i}
-                                    className={`history-score ${r.score > 0 ? 'positive' : r.score < 0 ? 'negative' : ''}`}
-                                  >
-                                    {r.name} {r.score > 0 ? '+' + r.score : r.score}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          );
-        })}
-
-        {/* 如果没有月结但有日结，显示日结历史 */}
-        {(!monthly || monthly.length === 0) && daily && daily.length > 0 && (
-          <div className={`expander ${isExpanded('daily-history') ? 'open' : ''}`} style={{ marginTop: 12 }}>
-            <div className="expander-header" onClick={() => toggleExpand('daily-history')}>
-              <span>📅 日结历史</span>
-              <span style={{ fontSize: 12, color: '#666' }}>{daily.length}次</span>
+        {/* 已月结 - 所有月份的大 expander */}
+        {monthly && monthly.length > 0 && (
+          <div className={`expander ${isExpanded('monthly-all') ? 'open' : ''}`} style={{ marginTop: 12 }}>
+            <div className="expander-header" onClick={() => toggleExpand('monthly-all')}>
+              <span>📆 已月结</span>
+              <span style={{ fontSize: 12, color: '#666' }}>{monthly.length}个月</span>
             </div>
             <div className="expander-content">
-              {daily.map((d) => {
-                const dayKey = `daily-${d.settlement_key}`;
-                const dayIsOpen = isExpanded(dayKey);
-                const dayData = settlementRecords[d.settlement_key];
+              {monthly.map((m) => {
+                const monthKey = `monthly-${m.settlement_key}`;
+                const monthIsOpen = isExpanded(monthKey);
+                const monthDaily = (daily || []).filter(d => d.monthly_settlement_id === m.settlement_key);
                 
                 return (
-                  <div key={d.settlement_key} className={`expander ${dayIsOpen ? 'open' : ''}`} style={{ marginLeft: 12, marginTop: 8 }}>
-                    <div className="expander-header" onClick={(e) => { e.stopPropagation(); toggleExpand(dayKey); }} style={{ background: '#e8f5e9' }}>
-                      <span>📅 {d.date} ({d.settlement_key})</span>
+                  <div key={m.month} className={`expander ${monthIsOpen ? 'open' : ''}`} style={{ marginLeft: 12, marginTop: 8 }}>
+                    <div className="expander-header" onClick={(e) => { e.stopPropagation(); toggleExpand(monthKey); }} style={{ background: '#fff3e0' }}>
+                      <span>📆 {m.month}月结 ({m.settlement_key})</span>
+                      <span style={{ fontSize: 12, color: '#666' }}>{monthDaily.length}次</span>
                     </div>
-                    {d.data && (
-                      <div style={{ padding: '8px 12px', background: '#f9f9f9', fontSize: 13 }}>
-                        {Object.entries(JSON.parse(d.data)).map(([name, score]) => (
+                    {m.data && (
+                      <div style={{ padding: '8px 12px', background: '#fff8e1', fontSize: 13 }}>
+                        {Object.entries(JSON.parse(m.data)).map(([name, score]) => (
                           <span key={name} style={{ marginRight: 12, color: score > 0 ? '#2e7d32' : score < 0 ? '#d32f2f' : '#666' }}>
                             {name}: {score > 0 ? '+' + score : score}
                           </span>
@@ -269,21 +191,45 @@ export default function History() {
                       </div>
                     )}
                     <div className="expander-content">
-                      {dayData && Object.keys(dayData).map(round => (
-                        <div key={round} style={{ margin: '8px 0', marginLeft: 12 }}>
-                          <div style={{ color: '#666', fontSize: 13 }}>第{round}局</div>
-                          <div className="history-scores">
-                            {dayData[round].map((r, i) => (
-                              <span
-                                key={i}
-                                className={`history-score ${r.score > 0 ? 'positive' : r.score < 0 ? 'negative' : ''}`}
-                              >
-                                {r.name} {r.score > 0 ? '+' + r.score : r.score}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
+                      {monthDaily.length === 0 ? (
+                        <div className="empty-state">暂无日结记录</div>
+                      ) : (
+                        monthDaily.map((d) => {
+                          const dayKey = `daily-${d.settlement_key}`;
+                          const dayIsOpen = isExpanded(dayKey);
+                          
+                          return (
+                            <div key={d.settlement_key} className={`expander ${dayIsOpen ? 'open' : ''}`} style={{ marginLeft: 12, marginTop: 8 }}>
+                              <div className="expander-header" onClick={(e) => { e.stopPropagation(); toggleExpand(dayKey); }} style={{ background: '#e8f5e9' }}>
+                                <span>📅 {d.date} ({d.settlement_key})</span>
+                              </div>
+                              {d.data && (
+                                <div style={{ padding: '8px 12px', background: '#f9f9f9', fontSize: 13 }}>
+                                  {Object.entries(JSON.parse(d.data)).map(([name, score]) => (
+                                    <span key={name} style={{ marginRight: 12, color: score > 0 ? '#2e7d32' : score < 0 ? '#d32f2f' : '#666' }}>
+                                      {name}: {score > 0 ? '+' + score : score}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              <div className="expander-content">
+                                {settlementRecords[d.settlement_key] && Object.keys(settlementRecords[d.settlement_key]).map(round => (
+                                  <div key={round} style={{ margin: '8px 0', marginLeft: 12 }}>
+                                    <div style={{ color: '#666', fontSize: 13 }}>第{round}局</div>
+                                    <div className="history-scores">
+                                      {settlementRecords[d.settlement_key][round].map((r, i) => (
+                                        <span key={i} className={`history-score ${r.score > 0 ? 'positive' : r.score < 0 ? 'negative' : ''}`}>
+                                          {r.name} {r.score > 0 ? '+' + r.score : r.score}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
                   </div>
                 );

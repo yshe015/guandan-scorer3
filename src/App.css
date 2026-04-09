@@ -69,14 +69,14 @@
   --input-border: #D4CFC5;
 }
 
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-color); min-height: 100vh; }
+body { font-family: 'LXGW WenKai Screen', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; background: var(--bg-color); min-height: 100vh; }
 .container { max-width: 480px; margin: 0 auto; background: var(--container-bg); min-height: 100vh; box-shadow: var(--box-shadow); }
 .header { background: var(--header-bg); color: #fff; padding: 16px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
-.header h1 { font-size: 18px; font-weight: 600; }
+.header h1 { font-size: 18px; font-weight: 600; font-family: 'LXGW WenKai Screen', serif !important; }
 .header-btn { background: rgba(255,255,255,0.2); border: none; color: #fff; padding: 4px 10px; border-radius: 6px; font-size: 12px; }
 .date-display { background: var(--secondary-color); padding: 12px 16px; font-size: 14px; color: var(--text-secondary); border-bottom: 1px solid var(--border-color); }
 .section { padding: 12px 16px; border-bottom: 1px solid var(--border-color); }
-.section-title { font-size: 16px; font-weight: 600; color: var(--text-primary); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+.section-title { font-size: 16px; font-weight: 600; font-family: 'LXGW WenKai Screen', serif !important; color: var(--text-primary); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
 .players-grid { display: flex; flex-wrap: wrap; gap: 8px; }
 .player-chip { display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: var(--chip-bg); border-radius: 20px; font-size: 14px; cursor: pointer; border: 2px solid transparent; transition: all 0.2s; user-select: none; }
 .player-chip.selected { background: var(--chip-selected-bg); border-color: var(--primary-color); }
@@ -140,7 +140,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 [data-theme="zen"] .header-btn {
   background: rgba(255,255,255,0.15);
   border: 1px solid rgba(200, 75, 49, 0.3);
-  font-family: 'Noto Serif SC', serif;
+  font-family: 'LXGW WenKai Screen', 'Noto Serif SC', serif;
   border-radius: 4px;
 }
 
@@ -150,24 +150,24 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 }
 
 [data-theme="zen"] .header h1 {
-  font-family: 'Noto Serif SC', 'Songti SC', serif;
+  font-family: 'LXGW WenKai Screen', serif !important;
   letter-spacing: 2px;
 }
 
 [data-theme="zen"] .player-chip {
   border-radius: 4px;
   border: 1px solid var(--border-color);
-  font-family: 'Noto Serif SC', serif;
+  font-family: 'LXGW WenKai Screen', 'Noto Serif SC', serif;
 }
 
 [data-theme="zen"] .btn {
   border-radius: 4px;
-  font-family: 'Noto Serif SC', serif;
+  font-family: 'LXGW WenKai Screen', 'Noto Serif SC', serif;
   letter-spacing: 1px;
 }
 
 [data-theme="zen"] .section-title {
-  font-family: 'Noto Serif SC', serif;
+  font-family: 'LXGW WenKai Screen', 'Noto Serif SC', serif;
 }
 
 [data-theme="zen"] .expander-header {
