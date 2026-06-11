@@ -128,9 +128,9 @@ export function GameProvider({ children }) {
     console.log('[Polling] Starting polling...');
     
     pollingRef.current = setInterval(() => {
-      console.log('[Polling] Fetching current game...');
-      loadCurrentGame();
-    }, 3000);
+      console.log('[Polling] Refreshing data...');
+      loadData();
+    }, 5000);
   };
 
   const stopPolling = () => {

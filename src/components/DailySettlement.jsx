@@ -44,7 +44,7 @@ export default function DailySettlement() {
       setHasUnsettled(false);
       setDailySettlementCount(prev => prev + 1);
       setSelectedPlayers([]); // Clear players
-      loadData();
+      await loadData();
       setTimeout(() => setCurrentPage('home'), 1500);
     } catch (e) {
       setAlertMsg('日结失败：' + e.message);

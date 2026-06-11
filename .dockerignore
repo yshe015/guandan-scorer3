@@ -1,0 +1,41 @@
+# Dependencies (rebuilt by `npm ci` in Dockerfile)
+node_modules/
+
+# Build output (rebuilt by `vite build` in Dockerfile)
+dist/
+
+# Runtime data/logs (volume-mounted in docker-compose.yml)
+data/
+logs/
+
+# Version control
+.git/
+.gitignore
+.gitattributes
+
+# Editor / IDE
+.claude/
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+
+# Documentation (not needed at runtime)
+README.md
+data/README.md
+
+# Docker self (avoid context confusion)
+Dockerfile
+docker-compose.yml
+.dockerignore

@@ -42,16 +42,9 @@ export default function Score() {
   const [alertMsg, setAlertMsg] = useState(null);
 
   useEffect(() => {
-    loadCurrentGame();
-    loadData(); // Also refresh scores
-    
-    const intervalId = setInterval(() => {
-      loadCurrentGame();
-      loadData(); // Refresh scores every 3 seconds
-    }, 3000);
-    
+    startPolling();
     return () => {
-      clearInterval(intervalId);
+      stopPolling();
     };
   }, []);
 
@@ -128,7 +121,7 @@ export default function Score() {
       }));
 
     if (records.length !== 4) {
-      setAlertMsg('必须有4人记分！');
+      setAlertMsg('仅限4位玩家记分');
       return;
     }
 

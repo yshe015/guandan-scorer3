@@ -46,7 +46,7 @@ export default function MonthlySettlement() {
       await api.confirmMonthlySettlement({ month, data });
       setAlertMsg('月结成功！');
       setHasUnsettled(false);
-      loadData();
+      await loadData();
       setTimeout(() => {
         setAlertMsg(null);
         setCurrentPage('home');
@@ -85,8 +85,10 @@ export default function MonthlySettlement() {
             <tr key={i}>
               <td><span className="rank-num">{i + 1}</span></td>
               <td>{p.name}</td>
-              <td className={p.score > 0 ? 'positive' : p.score < 0 ? 'negative' : ''}>
-                {p.score > 0 ? '+' + p.score : p.score}
+              <td>
+                <span className={`score-box ${p.score > 0 ? 'positive' : p.score < 0 ? 'negative' : 'neutral'}`}>
+                  {p.score > 0 ? '+' + p.score : p.score}
+                </span>
               </td>
             </tr>
           ))}

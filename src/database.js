@@ -14,6 +14,10 @@ if (!fs.existsSync(dataDir)) {
 const dbPath = path.join(dataDir, 'guandan.db');
 
 let db;
+let saveTimer = null;
+let isDirty = false;
+const SAVE_DEBOUNCE_MS = 100;
+const CHECKPOINT_INTERVAL_MS = 5000;
 
 export async function initDb() {
   const SQL = await initSqlJs();
@@ -79,27 +83,69 @@ export async function initDb() {
     )
   `);
   
+  isDirty = true;
   saveDb();
   
   return db;
 }
 
 export function getDb() {
+  if (!db) {
+    throw new Error('Database not initialized');
+  }
   return db;
 }
 
 export function saveDb() {
-  if (db) {
+  if (!db || !isDirty) return;
+  try {
     const data = db.export();
     const buffer = Buffer.from(data);
     fs.writeFileSync(dbPath, buffer);
+    isDirty = false;
+  } catch (e) {
+    console.error('[DB] saveDb failed:', e.message);
+  }
+}
+
+export function markDirty() {
+  isDirty = true;
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    saveTimer = null;
+    saveDb();
+  }, SAVE_DEBOUNCE_MS);
+}
+
+export function flushDb() {
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+  saveDb();
+}
+
+let checkpointTimer = null;
+export function startCheckpointTimer() {
+  if (checkpointTimer) return;
+  checkpointTimer = setInterval(() => {
+    if (isDirty) saveDb();
+  }, CHECKPOINT_INTERVAL_MS);
+}
+
+export function stopCheckpointTimer() {
+  if (checkpointTimer) {
+    clearInterval(checkpointTimer);
+    checkpointTimer = null;
   }
 }
 
 export function closeDb() {
+  flushDb();
+  stopCheckpointTimer();
   if (db) {
-    saveDb();
-    db.close();
+    try { db.close(); } catch (e) { console.error('[DB] closeDb error:', e.message); }
+    db = null;
   }
 }
 

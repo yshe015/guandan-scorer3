@@ -70,11 +70,57 @@ function AppContent() {
   );
 }
 
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('[ErrorBoundary] App crashed:', error, errorInfo);
+  }
+
+  handleReset = () => {
+    this.setState({ hasError: false, error: null });
+    window.location.reload();
+  };
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="container">
+          <div className="header">
+            <h1>🃏 地下室记分</h1>
+          </div>
+          <div className="error-fallback" style={{ padding: '20px', textAlign: 'center' }}>
+            <h2>应用出现错误</h2>
+            <p style={{ color: '#666' }}>{this.state.error?.message || '未知错误'}</p>
+            <button
+              className="btn btn-primary"
+              onClick={this.handleReset}
+              style={{ marginTop: '20px' }}
+            >
+              刷新页面
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function App() {
   return (
-    <GameProvider>
-      <AppContent />
-    </GameProvider>
+    <ErrorBoundary>
+      <GameProvider>
+        <AppContent />
+      </GameProvider>
+    </ErrorBoundary>
   );
 }
 

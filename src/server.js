@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { initDb, getDb, saveDb, closeDb } from './database.js';
+import { initDb, getDb, saveDb, markDirty, flushDb, startCheckpointTimer, closeDb } from './database.js';
 import { getConfig } from './config.js';
 import logger from './logger.js';
 
@@ -10,7 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.APIPORT || process.env.PORT || 3000;
 
 function getToday() {
   const now = new Date();
@@ -43,10 +43,18 @@ function queryOne(sql, params = []) {
   return results.length > 0 ? results[0] : null;
 }
 
+function findUnsettledRecord(date, round, playerId) {
+  return queryOne(
+    `SELECT id, score FROM score_records
+     WHERE date = ? AND round = ? AND player_id = ? AND daily_settlement_id IS NULL`,
+    [date, round, playerId]
+  );
+}
+
 function run(sql, params = []) {
   const db = getDb();
   db.run(sql, params);
-  saveDb();
+  markDirty();
   return { lastInsertRowid: db.exec('SELECT last_insert_rowid()')[0]?.values[0]?.[0] };
 }
 
@@ -189,7 +197,7 @@ app.get('/api/scores', (req, res) => {
     const todayScores = queryAll(`
       SELECT p.id, p.name, COALESCE(SUM(sr.score), 0) as today_score
       FROM players p
-      LEFT JOIN score_records sr ON p.id = sr.player_id AND sr.daily_settlement_id IS NULL
+      LEFT JOIN score_records sr ON p.id = sr.player_id AND sr.daily_settlement_id IS NULL AND sr.monthly_settlement_id IS NULL
       GROUP BY p.id
     `);
     
@@ -207,7 +215,7 @@ app.get('/api/scores', (req, res) => {
     const gamePlayers = gameResult ? JSON.parse(gameResult.selected_players || '[]') : [];
     const currentRound = gameResult ? gameResult.round : 1;
     
-    const hasUnsettled = queryOne('SELECT COUNT(*) as count FROM score_records WHERE daily_settlement_id IS NULL')?.count > 0;
+    const hasUnsettled = queryOne('SELECT COUNT(*) as count FROM score_records WHERE daily_settlement_id IS NULL AND monthly_settlement_id IS NULL')?.count > 0;
     
     const dailySettlementCount = queryOne('SELECT COUNT(*) as count FROM daily_settlement WHERE date = ?', [date]);
     
@@ -232,16 +240,54 @@ app.get('/api/scores', (req, res) => {
 app.post('/api/records', (req, res) => {
   const { date, month, round, records } = req.body;
   
-  if (!records || records.length === 0) {
+  if (!records || !Array.isArray(records) || records.length === 0) {
     return res.status(400).json({ error: '没有记分记录' });
   }
 
+  if (records.length !== 4) {
+    return res.status(400).json({ error: '仅限4位玩家记分' });
+  }
+
+  for (const r of records) {
+    if (r.player_id == null || typeof r.score !== 'number' || !Number.isFinite(r.score)) {
+      return res.status(400).json({ error: '记分数据格式错误' });
+    }
+  }
+
+  const seen = new Set();
+  for (const r of records) {
+    if (seen.has(r.player_id)) {
+      return res.status(400).json({ error: `记分包含重复玩家 player_id=${r.player_id},必须是 4 位不同玩家` });
+    }
+    seen.add(r.player_id);
+  }
+
+  const sortedScores = records.map(r => r.score).sort((a, b) => b - a);
+  const validCombos = [[3, 3, -3, -3], [2, 2, -2, -2], [1, 1, -1, -1]];
+  const isValidCombo = validCombos.some(c => JSON.stringify(c) === JSON.stringify(sortedScores));
+  if (!isValidCombo) {
+    return res.status(400).json({ error: `记分组合无效:${JSON.stringify(sortedScores)},必须是 [+3,+3,-3,-3] / [+2,+2,-2,-2] / [+1,+1,-1,-1]` });
+  }
+
   try {
+    let inserted = 0;
+    let skipped = 0;
     for (const r of records) {
+      const existing = findUnsettledRecord(date, round, r.player_id);
+      if (existing) {
+        skipped++;
+        logger.warn({
+          date, round, player_id: r.player_id,
+          existing_id: existing.id, existing_score: existing.score,
+          attempted_score: r.score
+        }, 'Duplicate record skipped (unsettled record exists)');
+        continue;
+      }
       run('INSERT INTO score_records (date, month, round, player_id, score) VALUES (?, ?, ?, ?, ?)', 
         [date, month, round, r.player_id, r.score]);
+      inserted++;
     }
-    res.json({ success: true });
+    res.json({ success: true, inserted, skipped });
   } catch (e) {
     const clientIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
     logger.error({ url: req.url, error: e.message, clientIP: clientIP }, 'API Error');
@@ -319,16 +365,75 @@ app.post('/api/current-game', (req, res) => {
 
 app.post('/api/current-game/submit', (req, res) => {
   const { date, month, round, records } = req.body;
-  
+
+  // 1. Basic shape validation
+  if (!records || !Array.isArray(records) || records.length === 0) {
+    return res.status(400).json({ error: '没有记分记录' });
+  }
+
+  // 2. Must be exactly 4 player scores
+  if (records.length !== 4) {
+    return res.status(400).json({ error: '仅限4位玩家记分' });
+  }
+
+  // 3. Each record must have a valid player_id and numeric score
+  for (const r of records) {
+    if (r.player_id == null || typeof r.score !== 'number' || !Number.isFinite(r.score)) {
+      return res.status(400).json({ error: '记分数据格式错误' });
+    }
+  }
+
+  // 4. Deduplicate by player_id; reject if duplicates in input (must be 4 unique players)
+  const dedupedMap = new Map();
+  for (const r of records) {
+    if (dedupedMap.has(r.player_id)) {
+      return res.status(400).json({ error: `记分包含重复玩家 player_id=${r.player_id},必须是 4 位不同玩家` });
+    }
+    dedupedMap.set(r.player_id, r.score);
+  }
+  const dedupedRecords = Array.from(dedupedMap.entries()).map(([player_id, score]) => ({ player_id, score }));
+
+  // 5. Validate score combo: only [3,3,-3,-3] | [2,2,-2,-2] | [1,1,-1,-1]
+  const sortedScores = dedupedRecords.map(r => r.score).sort((a, b) => b - a);
+  const validCombos = [[3, 3, -3, -3], [2, 2, -2, -2], [1, 1, -1, -1]];
+  const isValidCombo = validCombos.some(c => JSON.stringify(c) === JSON.stringify(sortedScores));
+  if (!isValidCombo) {
+    return res.status(400).json({ error: `记分组合无效:${JSON.stringify(sortedScores)},必须是 [+3,+3,-3,-3] / [+2,+2,-2,-2] / [+1,+1,-1,-1]` });
+  }
+
+  // 6. Sum must be 0 (defense-in-depth; valid combos already sum to 0)
+  const total = sortedScores.reduce((a, b) => a + b, 0);
+  if (total !== 0) {
+    return res.status(400).json({ error: `记分总和必须为 0,收到 ${total}` });
+  }
+
+  // 7. All player_ids must exist in players table
+  for (const r of dedupedRecords) {
+    const player = queryOne('SELECT id FROM players WHERE id = ?', [r.player_id]);
+    if (!player) {
+      return res.status(400).json({ error: `玩家 id=${r.player_id} 不存在` });
+    }
+  }
+
   try {
-    for (const r of records) {
-      run('INSERT INTO score_records (date, month, round, player_id, score) VALUES (?, ?, ?, ?, ?)', 
+    // 8. Per-record dedup check on (date, round, player_id, daily_settlement_id IS NULL)
+    for (const r of dedupedRecords) {
+      const existing = findUnsettledRecord(date, round, r.player_id);
+      if (existing) {
+        return res.status(400).json({
+          error: `本局 (${date} 第${round}局) 玩家 ${r.player_id} 已经记分 (id=${existing.id}, score=${existing.score}),不能重复提交`
+        });
+      }
+    }
+
+    for (const r of dedupedRecords) {
+      run('INSERT INTO score_records (date, month, round, player_id, score) VALUES (?, ?, ?, ?, ?)',
         [date, month, round, r.player_id, r.score]);
     }
-    
+
     const nextRound = round + 1;
-    run('UPDATE current_game SET round = ?, scores = \'{}\', submitted = 0, submitted_at = datetime(\'now\') WHERE id = 1', [nextRound]);
-    
+    run(`UPDATE current_game SET round = ?, scores = '{}', submitted = 0, submitted_at = datetime('now') WHERE id = 1`, [nextRound]);
+
     res.json({ success: true });
   } catch (e) {
     const clientIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
@@ -421,14 +526,24 @@ app.post('/api/monthly-settlement', (req, res) => {
     const count = (countResult?.count || 0) + 1;
     const settlementKey = `${month.replace(/-/g, '')}YJ${count}`;
     
-    run('INSERT INTO monthly_settlement (month, data, settlement_key) VALUES (?, ?, ?)', 
+    run('INSERT INTO monthly_settlement (month, data, settlement_key) VALUES (?, ?, ?)',
       [month, JSON.stringify(data), settlementKey]);
-    
-    run('UPDATE score_records SET monthly_settlement_id = ? WHERE monthly_settlement_id IS NULL', 
+
+    run('UPDATE score_records SET monthly_settlement_id = ? WHERE monthly_settlement_id IS NULL',
       [settlementKey]);
-    
+
     run('DELETE FROM current_game WHERE id = 1');
-    
+
+    flushDb();
+
+    try {
+      getDb().run('VACUUM');
+      flushDb();
+      logger.info({ month, settlementKey }, 'Monthly settlement + VACUUM completed');
+    } catch (vacErr) {
+      logger.warn({ error: vacErr.message, month }, 'VACUUM failed (non-fatal)');
+    }
+
     res.json({ success: true });
   } catch (e) {
     const clientIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
@@ -453,7 +568,7 @@ app.get('/api/history', (req, res) => {
       SELECT sr.date, sr.round, p.name, sr.score
       FROM score_records sr
       JOIN players p ON sr.player_id = p.id
-      WHERE sr.daily_settlement_id IS NULL
+      WHERE sr.daily_settlement_id IS NULL AND sr.monthly_settlement_id IS NULL
       ORDER BY sr.date DESC, sr.round DESC
     `);
     
@@ -474,7 +589,7 @@ app.get('/api/daily-records', (req, res) => {
       SELECT sr.date, sr.round, p.name, sr.score
       FROM score_records sr
       JOIN players p ON sr.player_id = p.id
-      WHERE sr.month = ?
+      WHERE sr.month = ? AND sr.monthly_settlement_id IS NULL
       ORDER BY sr.date DESC, sr.round DESC
     `, [month]);
     
@@ -529,22 +644,24 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// 404 handler
+// SPA fallback: serve index.html for all unmatched GET routes
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
+});
+
+// 404 handler (must be after SPA fallback)
 app.use((req, res) => {
   const clientIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
   logger.warn({ url: req.url, clientIP: clientIP }, '404 Not Found');
   res.status(404).json({ error: 'Not found' });
 });
 
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
-});
-
 async function startServer() {
   try {
     await initDb();
     logger.info('Database initialized');
-    
+    startCheckpointTimer();
+
     app.listen(PORT, '0.0.0.0', () => {
       logger.info(`Server running on port ${PORT}`);
     });
@@ -555,8 +672,19 @@ async function startServer() {
 }
 
 process.on('SIGINT', () => {
+  flushDb();
   closeDb();
   process.exit();
+});
+
+process.on('SIGTERM', () => {
+  flushDb();
+  closeDb();
+  process.exit();
+});
+
+process.on('beforeExit', () => {
+  flushDb();
 });
 
 startServer();
