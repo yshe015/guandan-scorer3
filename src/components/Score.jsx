@@ -160,9 +160,9 @@ export default function Score() {
       setHasUnsettled(true);
       setDailySettlementCount(0);
       console.log('[Score] Calling loadData...');
-      loadData();
+      await loadData();
       console.log('[Score] Calling loadCurrentGame...');
-      loadCurrentGame();
+      await loadCurrentGame();
     } catch (e) {
       setAlertMsg('记分失败：' + e.message);
     }
