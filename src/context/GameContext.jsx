@@ -77,12 +77,20 @@ export function GameProvider({ children }) {
         setSelectedPlayers(scoresRes.gamePlayers);
       }
       
-      // Update currentGame with selected_players
-      setCurrentGame(prev => ({
-        ...prev,
-        selected_players: scoresRes.gamePlayers || [],
-        round: scoresRes.currentRound || prev.round
-      }));
+      // Update currentGame from server data
+      if (currentGameRes) {
+        const scores = currentGameRes.scores || {};
+        const initializedScores = {};
+        (currentGameRes.selected_players || []).forEach(id => {
+          initializedScores[id] = scores[id] !== undefined ? scores[id] : 0;
+        });
+        setCurrentGame({
+          round: currentGameRes.round,
+          selected_players: currentGameRes.selected_players || [],
+          scores: initializedScores,
+          submitted: currentGameRes.submitted
+        });
+      }
       
       setLoading(false);
     } catch (e) {

@@ -6,41 +6,18 @@ import History from './components/History';
 import DailySettlement from './components/DailySettlement';
 import MonthlySettlement from './components/MonthlySettlement';
 import PlayerManagement from './components/PlayerManagement';
+import PinGate from './components/PinGate';
 
-function AppContent() {
+function AppContent({ config }) {
   const { currentPage, loading } = useGame();
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem('theme') || 'zen';
-  });
-  const [config, setConfig] = useState({
-    admin: false,
-    pollInterval: 600000,
-    logLevel: 'info'
   });
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
   }, [theme]);
-
-  useEffect(() => {
-    let intervalId;
-
-    function fetchConfig() {
-      fetch('/api/config')
-        .then(res => res.json())
-        .then(data => setConfig(data))
-        .catch(() => {});
-    }
-
-    fetchConfig();
-
-    intervalId = setInterval(fetchConfig, config.pollInterval || 600000);
-
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, [config.pollInterval]);
 
   const toggleTheme = () => {
     setTheme(prev => {
@@ -115,11 +92,35 @@ class ErrorBoundary extends React.Component {
 }
 
 function App() {
+  const [config, setConfig] = useState({
+    admin: false,
+    pinLength: 0,
+    pollInterval: 600000,
+    logLevel: 'info'
+  });
+
+  useEffect(() => {
+    let intervalId;
+    function fetchConfig() {
+      fetch('/api/config')
+        .then(res => res.json())
+        .then(data => setConfig(data))
+        .catch(() => {});
+    }
+    fetchConfig();
+    intervalId = setInterval(fetchConfig, config.pollInterval || 600000);
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [config.pollInterval]);
+
   return (
     <ErrorBoundary>
-      <GameProvider>
-        <AppContent />
-      </GameProvider>
+      <PinGate config={config}>
+        <GameProvider>
+          <AppContent config={config} />
+        </GameProvider>
+      </PinGate>
     </ErrorBoundary>
   );
 }

@@ -1,10 +1,14 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { initDb, getDb, saveDb, markDirty, flushDb, startCheckpointTimer, closeDb } from './database.js';
 import { getConfig } from './config.js';
 import logger from './logger.js';
+
+const tokens = new Set();
+let tokenExpireTimer = null;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -61,7 +65,7 @@ function run(sql, params = []) {
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token']
 }));
 app.use(express.json());
 
@@ -92,18 +96,55 @@ app.use('/api', (req, res, next) => {
   next();
 });
 
+// Auth middleware - skip auth and config endpoints
+app.use('/api', (req, res, next) => {
+  const publicPaths = ['/config', '/auth', '/check-auth'];
+  if (publicPaths.includes(req.path)) return next();
+
+  const token = req.headers['x-auth-token'];
+  if (!token || !tokens.has(token)) {
+    return res.status(401).json({ error: '认证已过期，请重新输入PIN' });
+  }
+  next();
+});
+
 // Config API
 app.get('/api/config', (req, res) => {
   try {
     const config = getConfig();
     res.json({
       admin: config.admin,
+      pinLength: config.pin?.length || 0,
+      tokenExpireMinutes: config.tokenExpireMinutes ?? 0,
       pollInterval: config.pollInterval,
       logLevel: config.logLevel
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// Auth API
+app.post('/api/auth', (req, res) => {
+  const { pin } = req.body;
+  const config = getConfig();
+  if (!config.pin) {
+    return res.status(500).json({ error: 'PIN not configured' });
+  }
+  if (pin !== config.pin) {
+    return res.status(401).json({ error: 'PIN 错误' });
+  }
+  const token = crypto.randomBytes(32).toString('hex');
+  tokens.add(token);
+  res.json({ token, pinLength: config.pin.length });
+});
+
+app.post('/api/check-auth', (req, res) => {
+  const token = req.headers['x-auth-token'];
+  if (token && tokens.has(token)) {
+    return res.json({ valid: true });
+  }
+  res.json({ valid: false });
 });
 
 // Players API
@@ -351,10 +392,14 @@ app.post('/api/current-game', (req, res) => {
   const { date, round, selected_players, scores } = req.body;
   
   try {
-    run(`
-      INSERT OR REPLACE INTO current_game (id, date, round, selected_players, scores, submitted)
-      VALUES (1, ?, ?, ?, ?, 0)
-    `, [date, round, JSON.stringify(selected_players), JSON.stringify(scores)]);
+    const existing = queryOne('SELECT id FROM current_game WHERE id = 1');
+    if (existing) {
+      run('UPDATE current_game SET date = ?, selected_players = ?, scores = ? WHERE id = 1',
+        [date, JSON.stringify(selected_players), JSON.stringify(scores)]);
+    } else {
+      run('INSERT INTO current_game (id, date, round, selected_players, scores, submitted) VALUES (1, ?, ?, ?, ?, 0)',
+        [date, round, JSON.stringify(selected_players), JSON.stringify(scores)]);
+    }
     res.json({ success: true });
   } catch (e) {
     const clientIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
@@ -364,7 +409,7 @@ app.post('/api/current-game', (req, res) => {
 });
 
 app.post('/api/current-game/submit', (req, res) => {
-  const { date, month, round, records } = req.body;
+  const { date, month, records } = req.body;
 
   // 1. Basic shape validation
   if (!records || !Array.isArray(records) || records.length === 0) {
@@ -416,22 +461,26 @@ app.post('/api/current-game/submit', (req, res) => {
   }
 
   try {
-    // 8. Per-record dedup check on (date, round, player_id, daily_settlement_id IS NULL)
+    // 8. Read current round from DB (authoritative source)
+    const game = queryOne('SELECT round FROM current_game WHERE id = 1');
+    const currentRound = game ? game.round : 1;
+
+    // 9. Per-record dedup check on (date, round, player_id, daily_settlement_id IS NULL)
     for (const r of dedupedRecords) {
-      const existing = findUnsettledRecord(date, round, r.player_id);
+      const existing = findUnsettledRecord(date, currentRound, r.player_id);
       if (existing) {
         return res.status(400).json({
-          error: `本局 (${date} 第${round}局) 玩家 ${r.player_id} 已经记分 (id=${existing.id}, score=${existing.score}),不能重复提交`
+          error: `本局 (${date} 第${currentRound}局) 玩家 ${r.player_id} 已经记分 (id=${existing.id}, score=${existing.score}),不能重复提交`
         });
       }
     }
 
     for (const r of dedupedRecords) {
       run('INSERT INTO score_records (date, month, round, player_id, score) VALUES (?, ?, ?, ?, ?)',
-        [date, month, round, r.player_id, r.score]);
+        [date, month, currentRound, r.player_id, r.score]);
     }
 
-    const nextRound = round + 1;
+    const nextRound = currentRound + 1;
     run(`UPDATE current_game SET round = ?, scores = '{}', submitted = 0, submitted_at = datetime('now') WHERE id = 1`, [nextRound]);
 
     res.json({ success: true });
@@ -544,6 +593,18 @@ app.post('/api/monthly-settlement', (req, res) => {
       logger.warn({ error: vacErr.message, month }, 'VACUUM failed (non-fatal)');
     }
 
+    const expireMin = getConfig().tokenExpireMinutes ?? 0;
+    if (expireMin > 0) {
+      if (tokenExpireTimer) clearTimeout(tokenExpireTimer);
+      tokenExpireTimer = setTimeout(() => {
+        tokens.clear();
+        tokenExpireTimer = null;
+        logger.info('Tokens cleared after monthly settlement expiry');
+      }, expireMin * 60 * 1000);
+    } else if (expireMin === 0) {
+      tokens.clear();
+    }
+
     res.json({ success: true });
   } catch (e) {
     const clientIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
@@ -616,8 +677,9 @@ app.get('/api/daily-records', (req, res) => {
 // Reset API
 app.post('/api/reset', (req, res) => {
   const { password } = req.body;
+  const config = getConfig();
   
-  if (password !== '8dm1n') {
+  if (!config.resetPassword || password !== config.resetPassword) {
     return res.status(401).json({ error: '密码错误' });
   }
   

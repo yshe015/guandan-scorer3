@@ -86,7 +86,9 @@ export default function Score() {
     playerScoreMap[p.id] = p.today_score || 0;
   });
 
-  const selectedPlayerList = players.filter(p => selectedPlayers.includes(p.id));
+  const selectedPlayerList = players
+    .filter(p => selectedPlayers.includes(p.id))
+    .sort((a, b) => (playerScoreMap[b.id] || 0) - (playerScoreMap[a.id] || 0) || a.name.localeCompare(b.name));
 
   const updateScore = (playerId, value) => {
     const newScores = { ...currentGame.scores, [playerId]: parseInt(value) };

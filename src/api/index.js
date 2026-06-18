@@ -5,13 +5,46 @@ function addTimestamp(url) {
   return `${url}${separator}_t=${Date.now()}`;
 }
 
+async function apiFetch(url, options = {}) {
+  const token = localStorage.getItem('pin_token');
+  const headers = { ...options.headers };
+  if (token) headers['x-auth-token'] = token;
+  const res = await fetch(url, { ...options, headers });
+  if (res.status === 401) {
+    localStorage.removeItem('pin_token');
+    window.dispatchEvent(new CustomEvent('auth:expired'));
+    throw new Error('认证已过期，请重新输入PIN');
+  }
+  return res;
+}
+
+export async function auth(pin) {
+  const res = await fetch(`${API}/api/auth`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pin })
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ error: 'PIN 错误' }));
+    throw new Error(error.error || 'PIN 错误');
+  }
+  return res.json();
+}
+
+export async function checkAuth() {
+  const token = localStorage.getItem('pin_token');
+  if (!token) return { valid: false };
+  const res = await apiFetch(`${API}/api/check-auth`, { method: 'POST' });
+  return res.json();
+}
+
 export async function getPlayers() {
-  const res = await fetch(`${API}/api/players`);
+  const res = await apiFetch(`${API}/api/players`);
   return res.json();
 }
 
 export async function addPlayer(name) {
-  const res = await fetch(`${API}/api/players`, {
+  const res = await apiFetch(`${API}/api/players`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name })
@@ -24,12 +57,12 @@ export async function addPlayer(name) {
 }
 
 export async function deletePlayer(id) {
-  const res = await fetch(`${API}/api/players/${id}`, { method: 'DELETE' });
+  const res = await apiFetch(`${API}/api/players/${id}`, { method: 'DELETE' });
   return res.json();
 }
 
 export async function updatePlayer(id, name) {
-  const res = await fetch(`${API}/api/players/${id}`, {
+  const res = await apiFetch(`${API}/api/players/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name })
@@ -42,22 +75,22 @@ export async function updatePlayer(id, name) {
 }
 
 export async function getScores(date, month) {
-  const res = await fetch(addTimestamp(`${API}/api/scores?date=${date}&month=${month}`));
+  const res = await apiFetch(addTimestamp(`${API}/api/scores?date=${date}&month=${month}`));
   return res.json();
 }
 
 export async function getRecords(date) {
-  const res = await fetch(addTimestamp(`${API}/api/records?date=${date}`));
+  const res = await apiFetch(addTimestamp(`${API}/api/records?date=${date}`));
   return res.json();
 }
 
 export async function getCurrentGame() {
-  const res = await fetch(addTimestamp(`${API}/api/current-game`));
+  const res = await apiFetch(addTimestamp(`${API}/api/current-game`));
   return res.json();
 }
 
 export async function saveCurrentGame(data) {
-  const res = await fetch(`${API}/api/current-game`, {
+  const res = await apiFetch(`${API}/api/current-game`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
@@ -66,7 +99,7 @@ export async function saveCurrentGame(data) {
 }
 
 export async function submitScore(data) {
-  const res = await fetch(`${API}/api/current-game/submit`, {
+  const res = await apiFetch(`${API}/api/current-game/submit`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
@@ -79,12 +112,12 @@ export async function submitScore(data) {
 }
 
 export async function getDailySettlement(date) {
-  const res = await fetch(`${API}/api/daily-settlement?date=${date}`);
+  const res = await apiFetch(`${API}/api/daily-settlement?date=${date}`);
   return res.json();
 }
 
 export async function confirmDailySettlement(data) {
-  const res = await fetch(`${API}/api/daily-settlement`, {
+  const res = await apiFetch(`${API}/api/daily-settlement`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
@@ -97,12 +130,12 @@ export async function confirmDailySettlement(data) {
 }
 
 export async function getMonthlySettlement(month) {
-  const res = await fetch(`${API}/api/monthly-settlement?month=${month}`);
+  const res = await apiFetch(`${API}/api/monthly-settlement?month=${month}`);
   return res.json();
 }
 
 export async function confirmMonthlySettlement(data) {
-  const res = await fetch(`${API}/api/monthly-settlement`, {
+  const res = await apiFetch(`${API}/api/monthly-settlement`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
@@ -115,27 +148,27 @@ export async function confirmMonthlySettlement(data) {
 }
 
 export async function getHistory() {
-  const res = await fetch(`${API}/api/history`);
+  const res = await apiFetch(`${API}/api/history`);
   return res.json();
 }
 
 export async function getDailyRecords(month) {
-  const res = await fetch(`${API}/api/daily-records?month=${month}`);
+  const res = await apiFetch(`${API}/api/daily-records?month=${month}`);
   return res.json();
 }
 
 export async function getCheckDailySettled(date) {
-  const res = await fetch(`${API}/api/check-daily-settled?date=${date}`);
+  const res = await apiFetch(`${API}/api/check-daily-settled?date=${date}`);
   return res.json();
 }
 
 export async function getDailySettlementRecords(settlementKey) {
-  const res = await fetch(addTimestamp(`${API}/api/daily-settlement/${settlementKey}/records`));
+  const res = await apiFetch(addTimestamp(`${API}/api/daily-settlement/${settlementKey}/records`));
   return res.json();
 }
 
 export async function resetData(password) {
-  const res = await fetch(`${API}/api/reset`, {
+  const res = await apiFetch(`${API}/api/reset`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ password })

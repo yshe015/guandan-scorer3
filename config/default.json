@@ -1,5 +1,8 @@
 {
-  "admin": false,
+  "admin": true,
+  "pin": "1234",
+  "resetPassword": "8dm1n",
+  "tokenExpireMinutes": 0,
   "pollInterval": 600000,
-  "logLevel": "info"
+  "logLevel": "debug"
 }

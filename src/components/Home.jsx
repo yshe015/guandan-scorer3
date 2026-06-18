@@ -88,6 +88,7 @@ export default function Home({ toggleTheme, theme, config }) {
           selected_players: newSelected,
           scores
         });
+        await loadData();
       } catch (e) {
         console.error('Failed to sync players:', e);
       }
@@ -197,7 +198,13 @@ export default function Home({ toggleTheme, theme, config }) {
       
       <div className="section">
         {isGameActive ? (
-          <button className="btn btn-primary" onClick={() => setCurrentPage('score')}>
+          <button className="btn btn-primary" onClick={async () => {
+            const scores = {};
+            selectedPlayers.forEach(id => { scores[id] = 0; });
+            await api.saveCurrentGame({ date, round: currentRound, selected_players: selectedPlayers, scores });
+            await loadData();
+            setCurrentPage('score');
+          }}>
             🎮 记分 (第{displayRound}局)
           </button>
         ) : (

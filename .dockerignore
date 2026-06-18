@@ -39,3 +39,5 @@ data/README.md
 Dockerfile
 docker-compose.yml
 .dockerignore
+*/test/
+*/tmp/

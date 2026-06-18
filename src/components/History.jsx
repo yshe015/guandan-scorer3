@@ -142,7 +142,7 @@ export default function History() {
                       </div>
                     )}
                     <div className="expander-content">
-                      {settlementRecords[d.settlement_key] && Object.keys(settlementRecords[d.settlement_key]).map(round => (
+                      {settlementRecords[d.settlement_key] && Object.keys(settlementRecords[d.settlement_key]).sort((a, b) => b - a).map(round => (
                         <div key={round} style={{ margin: '8px 0', marginLeft: 12 }}>
                           <div style={{ color: '#666', fontSize: 13 }}>第{round}局</div>
                           <div className="history-scores">
@@ -176,7 +176,7 @@ export default function History() {
                 const monthDaily = (daily || []).filter(d => d.monthly_settlement_id === m.settlement_key);
                 
                 return (
-                  <div key={m.month} className={`expander ${monthIsOpen ? 'open' : ''}`} style={{ marginLeft: 12, marginTop: 8 }}>
+                  <div key={m.settlement_key} className={`expander ${monthIsOpen ? 'open' : ''}`} style={{ marginLeft: 12, marginTop: 8 }}>
                     <div className="expander-header" onClick={(e) => { e.stopPropagation(); toggleExpand(monthKey); }} style={{ background: '#fff3e0' }}>
                       <span>📆 {m.month}月结 ({m.settlement_key})</span>
                       <span style={{ fontSize: 12, color: '#666' }}>{monthDaily.length}次</span>
@@ -213,7 +213,7 @@ export default function History() {
                                 </div>
                               )}
                               <div className="expander-content">
-                                {settlementRecords[d.settlement_key] && Object.keys(settlementRecords[d.settlement_key]).map(round => (
+                                {settlementRecords[d.settlement_key] && Object.keys(settlementRecords[d.settlement_key]).sort((a, b) => b - a).map(round => (
                                   <div key={round} style={{ margin: '8px 0', marginLeft: 12 }}>
                                     <div style={{ color: '#666', fontSize: 13 }}>第{round}局</div>
                                     <div className="history-scores">
